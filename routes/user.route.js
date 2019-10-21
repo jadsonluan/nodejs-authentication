@@ -1,6 +1,6 @@
 const auth = require("../middleware/auth");
 const bcrypt = require("bcrypt");
-const { User, validate } = require("../models/user.model");
+const { User, validate, validateCredentials } = require("../models/user.model");
 const express = require("express");
 const router = express.Router();
 
@@ -33,5 +33,23 @@ router.post("/", async (req, res) => {
     email: user.email
   });
 });
+
+router.post("/auth", async (req, res) => {
+  const { error } = validateCredentials(req.body);
+  if (error) return res.status(400).send(error.details[0].message);
+
+  const user = await User.findOne({ email: req.body.email });
+  const match = await bcrypt.compare(req.body.password, user.password);
+
+  if (!match) return res.status(401).send("Access denied. Wrong password.");
+
+  const token = user.generateAuthToken();
+  
+  res.header("x-auth-token", token).send({
+    _id: user._id,
+    name: user.name,
+    email: user.email
+  });
+})
 
 module.exports = router;
